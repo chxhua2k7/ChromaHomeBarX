@@ -40,25 +40,25 @@
 -(void)goToTwitter{
     NSString *user = @"rockafnan";
     if([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"tweetbot:"]])
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"tweetbot:///user_profile/" stringByAppendingString:user]]];
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"tweetbot:///user_profile/" stringByAppendingString:user]] options:@{} completionHandler:nil];
     else if([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"twitter:"]])
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"twitter://user?screen_name=" stringByAppendingString:user]]];
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"twitter://user?screen_name=" stringByAppendingString:user]] options:@{} completionHandler:nil];
     else
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"https://mobile.twitter.com/" stringByAppendingString:user]]];
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[@"https://mobile.twitter.com/" stringByAppendingString:user]] options:@{} completionHandler:nil];
 
 }
 
 -(void)goToPaypal{
   NSString *urlString = @"https://www.paypal.me/AfnanAhmad";
   if([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:urlString]]){
-      [[UIApplication sharedApplication] openURL:[NSURL URLWithString:urlString]];
+      [[UIApplication sharedApplication] openURL:[NSURL URLWithString:urlString] options:@{} completionHandler:nil];
   }
 }
 
 -(void)goToHomeGesture{
   NSString *urlString = @"https://repo.packix.com/package/com.vitataf.homegesture/";
   if([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:urlString]]){
-      [[UIApplication sharedApplication] openURL:[NSURL URLWithString:urlString]];
+      [[UIApplication sharedApplication] openURL:[NSURL URLWithString:urlString] options:@{} completionHandler:nil];
   }
 }
 
