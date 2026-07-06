@@ -22,8 +22,8 @@ jobs:
 
       - name: Install Theos
         run: |
-          export THEOS=/opt/theos
-          sudo git clone --recursive https://github.com/theos/theos.git $THEOS
+          export THEOS=$HOME/theos
+          git clone --recursive https://github.com/theos/theos.git $THEOS
           echo "THEOS=$THEOS" >> $GITHUB_ENV
 
       - name: Install ldid
@@ -32,7 +32,7 @@ jobs:
       - name: Cache Theos SDKs
         uses: actions/cache@v4
         with:
-          path: /opt/theos/sdks
+          path: ${{ env.THEOS }}/sdks
           key: theos-sdks-${{ runner.os }}
 
       - name: Download iOS SDK
@@ -46,9 +46,7 @@ jobs:
           rm -rf sdks
 
       - name: Build package
-        run: |
-          export THEOS=/opt/theos
-          make package FINALPACKAGE=1
+        run: make package FINALPACKAGE=1
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
