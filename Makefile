@@ -2,7 +2,7 @@ THEOS_DEVICE_IP = 192.168.0.100
 THEOS_PACKAGE_DIR_NAME = debs
 
 TARGET = iphone:clang
-ARCHS = armv7 armv7s arm64 arm64e
+ARCHS = arm64 arm64e
 
 # TARGET = simulator:clang::11.0
 # ARCHS = x86_64 i386
