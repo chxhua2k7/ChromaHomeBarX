@@ -7,6 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-14
@@ -19,6 +22,14 @@ jobs:
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Detect SDK version from Makefile
+        id: sdk
+        run: |
+          TARGET_LINE=$(grep -m1 '^TARGET' Makefile)
+          SDK_VERSION=$(echo "$TARGET_LINE" | cut -d':' -f3)
+          echo "SDK 版本: $SDK_VERSION"
+          echo "sdk_version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install Theos
         run: |
@@ -33,18 +44,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.THEOS }}/sdks
-          key: theos-sdks-xybp888-${{ runner.os }}
+          key: theos-sdks-xybp888-${{ steps.sdk.outputs.sdk_version }}-${{ runner.os }}
 
       - name: Download iOS SDK (xybp888/iOS-SDKs)
         run: |
+          SDK_NAME="iPhoneOS${{ steps.sdk.outputs.sdk_version }}.sdk"
+          if [ -d "$THEOS/sdks/$SDK_NAME" ]; then
+            echo "SDK 已存在 cache 中,跳過下載: $SDK_NAME"
+            exit 0
+          fi
           git clone -n --depth=1 --filter=tree:0 https://github.com/xybp888/iOS-SDKs.git
           cd iOS-SDKs
-          git sparse-checkout set --no-cone iPhoneOS16.5.sdk
+          git sparse-checkout set --no-cone "$SDK_NAME"
           git checkout
-          mv iPhoneOS16.5.sdk $THEOS/sdks/
+          mv "$SDK_NAME" "$THEOS/sdks/"
           cd ..
           rm -rf iOS-SDKs
-          
+
       - name: Build package
         run: make package FINALPACKAGE=1
 
@@ -53,3 +69,19 @@ jobs:
         with:
           name: deb-package
           path: packages/*.deb
+
+      - name: Move old "latest" tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git tag -f latest
+          git push origin latest -f
+
+      - name: Update latest Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest Build"
+          body: "自動建置的最新版本，對應 commit ${{ github.sha }}"
+          prerelease: true
+          files: packages/*.deb
