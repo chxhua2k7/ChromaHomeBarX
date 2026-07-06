@@ -44,10 +44,7 @@ jobs:
           mv iPhoneOS16.5.sdk $THEOS/sdks/
           cd ..
           rm -rf iOS-SDKs
-
-      - name: Verify Preferences framework exists
-        run: find $THEOS/sdks/iPhoneOS16.5.sdk -iname "*Preferences*"
-
+          
       - name: Build package
         run: make package FINALPACKAGE=1
 
