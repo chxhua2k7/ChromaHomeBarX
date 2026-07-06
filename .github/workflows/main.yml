@@ -33,17 +33,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.THEOS }}/sdks
-          key: theos-sdks-${{ runner.os }}
+          key: theos-sdks-xybp888-${{ runner.os }}
 
-      - name: Download iOS SDK
+      - name: Download iOS SDK (xybp888/iOS-SDKs)
         run: |
-          git clone -n --depth=1 --filter=tree:0 https://github.com/theos/sdks.git
-          cd sdks
+          git clone -n --depth=1 --filter=tree:0 https://github.com/xybp888/iOS-SDKs.git
+          cd iOS-SDKs
           git sparse-checkout set --no-cone iPhoneOS16.5.sdk
           git checkout
           mv iPhoneOS16.5.sdk $THEOS/sdks/
           cd ..
-          rm -rf sdks
+          rm -rf iOS-SDKs
+
+      - name: Verify Preferences framework exists
+        run: find $THEOS/sdks/iPhoneOS16.5.sdk -iname "*Preferences*"
 
       - name: Build package
         run: make package FINALPACKAGE=1
