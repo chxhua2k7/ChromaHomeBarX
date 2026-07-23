@@ -1,10 +1,7 @@
-name: Build Theos Package
+name: Build tweak
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -12,76 +9,68 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
-
+    runs-on: macos-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: brew install make ldid xz
+
+      - name: Checkout Theos
         uses: actions/checkout@v4
         with:
+          repository: theos/theos
+          path: theos
           submodules: recursive
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
-      - name: Detect SDK version from Makefile
-        id: sdk
+      # Only the one SDK the Makefile pins; a full theos/sdks clone is huge.
+      - name: Fetch iOS SDK pinned in Makefile
         run: |
-          TARGET_LINE=$(grep -m1 '^TARGET' Makefile)
-          SDK_VERSION=$(echo "$TARGET_LINE" | cut -d':' -f3)
-          echo "SDK 版本: $SDK_VERSION"
-          echo "sdk_version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Install Theos
-        run: |
-          export THEOS=$HOME/theos
-          git clone --recursive https://github.com/theos/theos.git $THEOS
-          echo "THEOS=$THEOS" >> $GITHUB_ENV
-
-      - name: Install ldid
-        run: brew install ldid || true
-
-      - name: Cache Theos SDKs
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.THEOS }}/sdks
-          key: theos-sdks-xybp888-${{ steps.sdk.outputs.sdk_version }}-${{ runner.os }}
-
-      - name: Download iOS SDK (xybp888/iOS-SDKs)
-        run: |
-          SDK_NAME="iPhoneOS${{ steps.sdk.outputs.sdk_version }}.sdk"
-          if [ -d "$THEOS/sdks/$SDK_NAME" ]; then
-            echo "SDK 已存在 cache 中,跳過下載: $SDK_NAME"
-            exit 0
+          sdk=$(sed -n 's/^TARGET[^=]*=[[:space:]]*iphone:clang:\([0-9.]*\).*/\1/p' Makefile | head -1)
+          if [ -z "$sdk" ]; then
+            echo "TARGET in Makefile does not pin an explicit SDK version" >&2
+            exit 1
           fi
-          git clone -n --depth=1 --filter=tree:0 https://github.com/xybp888/iOS-SDKs.git
-          cd iOS-SDKs
-          git sparse-checkout set --no-cone "$SDK_NAME"
-          git checkout
-          mv "$SDK_NAME" "$THEOS/sdks/"
-          cd ..
-          rm -rf iOS-SDKs
+          echo "Using iPhoneOS${sdk}.sdk"
+          git clone --depth=1 --filter=tree:0 --no-checkout https://github.com/theos/sdks.git /tmp/sdks
+          git -C /tmp/sdks sparse-checkout set "iPhoneOS${sdk}.sdk"
+          git -C /tmp/sdks checkout
+          mkdir -p theos/sdks
+          mv "/tmp/sdks/iPhoneOS${sdk}.sdk" theos/sdks/
 
       - name: Build package
-        run: make package FINALPACKAGE=1
+        run: |
+          export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+          make package FINALPACKAGE=1
+        env:
+          THEOS: ${{ github.workspace }}/theos
 
-      - name: Upload artifact
+      - name: Read package info
+        id: info
+        run: |
+          echo "version=$(awk '/^Version:/ {print $2}' control)" >> "$GITHUB_OUTPUT"
+          echo "name=$(awk '/^TWEAK_NAME/ {print $NF}' Makefile)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-package
+          name: ${{ steps.info.outputs.name }}-${{ steps.info.outputs.version }}
           path: packages/*.deb
 
-      - name: Move old "latest" tag
-        if: github.ref == 'refs/heads/main'
-        run: |
-          git tag -f latest
-          git push origin latest -f
-
-      - name: Update latest Release
-        if: github.ref == 'refs/heads/main'
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: "Latest Build"
-          body: "自動建置的最新版本，對應 commit ${{ github.sha }}"
-          prerelease: true
+          tag_name: v${{ steps.info.outputs.version }}
+          name: ${{ steps.info.outputs.name }} ${{ steps.info.outputs.version }}
+          prerelease: ${{ github.ref != 'refs/heads/main' }}
           files: packages/*.deb
+
+      - name: Notify repo.me
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ME_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/chxhua2k7/repo.me/dispatches \
+            -f event_type=release-sync \
+            -f "client_payload[repo]=${{ github.repository }}"
